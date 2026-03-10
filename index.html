@@ -111,31 +111,50 @@
         function showResult(data) {
             resultDiv.classList.remove('hidden');
             
-            // data — это массив, который вернула твоя функция classify_image
-            // Обычно Gradio для классификации возвращает объект с метками
-            // Например: { "label": "broken", "confidences": [{"label": "broken", "score": 0.98}, ...]}
-            
+            // Пытаемся достать метку (label) и уверенность (score)
             let label = "";
-            let score = 0;
+            let score = null;
 
-            if (data[0].label) {
-                label = data[0].label;
-                score = data[0].confidences[0].score;
-            } else {
-                // Если формат другой, берем первый элемент (зависит от твоей функции в Python)
-                label = "Обработано"; 
+            try {
+                // Проверка структуры: Gradio обычно возвращает массив в data
+                const mainData = data[0];
+                
+                if (typeof mainData === 'string') {
+                    label = mainData; // Если вернулась просто строка
+                } else if (mainData.label) {
+                    label = mainData.label;
+                    // Проверяем, есть ли поле confidences или score
+                    score = mainData.confidences ? mainData.confidences[0].score : mainData.score;
+                }
+            } catch (e) {
+                console.log("Нестандартный формат данных:", data);
+                label = "Обработано";
             }
 
-            // Красивый вывод
+            // Определяем, разбита или нет
             const isDamaged = label.toLowerCase().includes('damage') || label.toLowerCase().includes('broken');
             
             statusLabel.innerText = isDamaged ? "⚠️ РАЗБИТА" : "✅ ЦЕЛАЯ";
             statusLabel.className = `text-3xl font-black mt-2 ${isDamaged ? 'text-red-500' : 'text-green-600'}`;
             
-            const percent = Math.round(score * 100);
-            confidenceBar.style.width = percent + "%";
-            confidenceBar.className = `h-full transition-all duration-1000 ${isDamaged ? 'bg-red-500' : 'bg-green-500'}`;
-            confidenceText.innerText = `Уверенность модели: ${percent}%`;
+            // Работа с уверенностью (процентами)
+            const confidenceContainer = document.querySelector('.mt-4.bg-slate-100'); // контейнер полоски
+            const confidenceLabel = document.getElementById('confidenceText');
+
+            if (score !== null && !isNaN(score)) {
+                const percent = Math.round(score * 100);
+                confidenceBar.style.width = percent + "%";
+                confidenceBar.className = `h-full transition-all duration-1000 ${isDamaged ? 'bg-red-500' : 'bg-green-500'}`;
+                confidenceLabel.innerText = `Уверенность модели: ${percent}%`;
+                
+                // Показываем блоки, если они были скрыты
+                confidenceContainer.classList.remove('hidden');
+                confidenceLabel.classList.remove('hidden');
+            } else {
+                // Скрываем блоки с процентами, если данных нет
+                confidenceContainer.classList.add('hidden');
+                confidenceLabel.classList.add('hidden');
+            }
         }
     </script>
 </body>
